@@ -51,6 +51,12 @@ class NexmoSMS
     private $deliveryReceiptData = array();
 
     /**
+     * The array that contains received inbound message
+     * @var array
+     */
+    private $inboundMessage = array();
+
+    /**
      * The default required configuration
      *
      * @var array
@@ -620,18 +626,17 @@ class NexmoSMS
     /**
      * Handle delivery receipt sent from Nexmo
      *
-     * @todo http_response_code is only supported by php 5.4+,
-     *       should add compatible code for php 5.4 below
      */
-    public function receiveDeliveryReceipt()
+    public function handleDeliveryReceipt()
     {
-        // remove ? mark
-        $input = str_replace('?', '', @file_get_contents('php://input'));
-        parse_str($input, $this->deliveryReceiptData);
-        // always send 200 status code to Nexmo
-        http_response_code(200);
+        $this->handleReceivingData($this->deliveryReceiptData);
     }
 
+    /**
+     * Get the delivery data
+     *
+     * @return array
+     */
     public function getDeliveryReceiptData()
     {
         return $this->deliveryReceiptData;
@@ -642,5 +647,40 @@ class NexmoSMS
      *      Receiving Inbound Message
      * ******************************************************
      * */
+
+
+    /**
+     * Handle delivery receipt sent from Nexmo
+     *
+     */
+    public function handleInboundMessage()
+    {
+       $this->handleReceivingData($this->inboundMessage);
+    }
+
+    /**
+     * Get the inbound message data
+     *
+     * @return array
+     */
+    public function getInboundMessage()
+    {
+        return $this->inboundMessage;
+    }
+
+    /**
+     * Generic function for handling received data from Nexmo
+     *
+     * @todo http_response_code is only supported by php 5.4+,
+     *       should add compatible code for php 5.4 below
+     */
+    public function handleReceivingData(array $receiveDataArray)
+    {
+        // remove ? mark
+        $input = str_replace('?', '', @file_get_contents('php://input'));
+        parse_str($input, $receiveDataArray);
+        // always send 200 status code to Nexmo
+        http_response_code(200);
+    }
 
 }
