@@ -43,6 +43,12 @@ class NexmoSMS
      */
     private $responseFormat = 'json';
 
+    /**
+     * The array that contains received delivery receipt data
+     *
+     * @var array
+     */
+    private $deliveryReceiptData = array();
 
     /**
      * The default required configuration
@@ -609,7 +615,27 @@ class NexmoSMS
      *      Receiving Delivery Receipt
      * ******************************************************
      * */
-    
+
+
+    /**
+     * Handle delivery receipt sent from Nexmo
+     *
+     * @todo http_response_code is only supported by php 5.4+,
+     *       should add compatible code for php 5.4 below
+     */
+    public function receiveDeliveryReceipt()
+    {
+        // remove ? mark
+        $input = str_replace('?', '', @file_get_contents('php://input'));
+        parse_str($input, $this->deliveryReceiptData);
+        // always send 200 status code to Nexmo
+        http_response_code(200);
+    }
+
+    public function getDeliveryReceiptData()
+    {
+        return $this->deliveryReceiptData;
+    }
 
     /*
      * ******************************************************
