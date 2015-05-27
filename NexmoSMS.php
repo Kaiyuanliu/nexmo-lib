@@ -473,17 +473,57 @@ class NexmoSMS
         return $filteredParams;
     }
 
+
     /**
      * To check if the response is valid or not
      *
-     * @param array|SimpleXMLElement $response The parsed response
+     * @param array|SimpleXMLElement $response The response from Nexmo server
      *
      * @return bool
+     * @throws Exception
+     * @todo find a better way to throw exception in order to remove duplicated exception
      */
     private function validateSMSResponse($response)
     {
+        if ('json' == $this->responseFormat) {
+            if (!isset($response['message-count'])) {
+                throw new Exception("message-count must be in the json response body");
+            }
+
+            if (!isset($response['messages'])) {
+                throw new Exception('messages property must be in the json response body');
+            }
+
+            foreach ($response['messages'] as $message) {
+                if (!empty($message['error-text'])) {
+                    $errorStatus = $message['status'];
+                    $errorText = $message['error-text'];
+                    throw new Exception("Unable to send SMS message \n\n " .
+                        "(Error Tracker: [$errorStatus] - $errorText)");
+                }
+            }
+        } else {
+            if (empty($response->messages)) {
+                throw new Exception('messages property must be in the xml response body');
+            }
+            $xmlResponseAttributes = $response->messages->attributes();
+            if (!isset($xmlResponseAttributes['count'])) {
+                throw new Exception('message count must be in the xml response body');
+            }
+            foreach ($response->messages as $message) {
+                if (!empty($message->message->errorText)) {
+                    $errorStatus = $message->message->status;
+                    $errorText = $message->message->errorText;
+                    throw new Exception("Unable to send SMS message \n\n " .
+                        "(Error Tracker: [$errorStatus] - $errorText)");
+                }
+            }
+        }
+
         return true;
     }
+
+
 
     /**
      * Parse response into json
@@ -569,7 +609,7 @@ class NexmoSMS
      *      Receiving Delivery Receipt
      * ******************************************************
      * */
-
+    
 
     /*
      * ******************************************************
