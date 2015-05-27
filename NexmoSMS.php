@@ -25,7 +25,7 @@ class NexmoSMS
      *
      * @var array
      */
-    private $nexmoDefaults = array();
+    private $nexmoConfig = array();
 
     /**
      * The base url of Nexmo API endpoint
@@ -118,29 +118,15 @@ class NexmoSMS
     {
         if(is_array($name)) {
             if (true === $value) {
-                $this->nexmoDefaults = array_merge_recursive($this->nexmoDefaults, $name);
+                $this->nexmoConfig = array_merge_recursive($this->nexmoConfig, $name);
             } else {
-                $this->nexmoDefaults = array_merge($this->nexmoDefaults, $name);
+                $this->nexmoConfig = array_merge($this->nexmoConfig, $name);
             }
         } else {
-            $settings = $this->nexmoDefaults;
+            $settings = $this->nexmoConfig;
             $settings[$name] = $value;
-            $this->nexmoDefaults = $settings;
+            $this->nexmoConfig = $settings;
         }
-    }
-
-    /**
-     * Get a default array of nexmo options
-     *
-     * @return array
-     */
-    protected function getDefaults()
-    {
-        $nexmoDefaultSettings = array(
-            "endpoint_type" => "json"
-        );
-
-        return $nexmoDefaultSettings;
     }
 
     /**
@@ -148,16 +134,13 @@ class NexmoSMS
      *
      * @param array $config
      */
-    private function configureDefaults($config)
+    private function configureDefaults(array $config)
     {
-        if (!isset($config['defaults'])) {
-            $this->nexmoDefaults = $this->getDefaults();
-        } else {
-            $this->nexmoDefaults = array_merge(
-                $this->getDefaults(),
-                $config['defaults']
-            );
-        }
+        $nexmoDefaultSettings = array(
+            "endpoint_type" => "json"
+        );
+
+        $this->nexmoConfig = $config + $nexmoDefaultSettings;
     }
 
     /**
@@ -165,9 +148,9 @@ class NexmoSMS
      *
      * @return string
      */
-    protected function buildUrl()
+    public function buildUrl()
     {
-        return $this->baseUrl . '/sms/' . $this->nexmoDefaults['endpoint_type'];
+        return $this->baseUrl . '/sms/' . $this->nexmoConfig['endpoint_type'];
     }
 
     /**
@@ -175,13 +158,124 @@ class NexmoSMS
      *
      * @return string|mixed UTF-8 encoded string or the original object if it is not a string
      */
-    public function utf8($value)
+    public static function utf8($value)
     {
-        if (is_string($value) && "UTF-8" != mb_detect_encoding($value, "UTF-8", true)) {
+        if (is_string($value) && 'UTF-8' != mb_detect_encoding($value, 'UTF-8', true)) {
             return utf8_encode($value);
         } else {
             return $value;
         }
+    }
+
+
+    /**
+     * Send SMS request by using curl (default)
+     *
+     * @param string    $method     The request method, get and post supported currently
+     * @param string    $url        The url used to send request
+     * @param array     $params     The parameters that needs to be
+     *                              set for sending request
+     * @param array     $options    The optional settings (timeout etc.)
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function request($method, $url, $params, array $options = array())
+    {
+        $defaultHeaders = array(
+            "Content-Type" => 'application/x-www-form-urlencoded'
+        );
+        if (isset($options['headers'])) {
+            $defaultHeaders = array_merge($defaultHeaders, $options['headers']);
+        }
+        $rawHeaders = array();
+        foreach ($defaultHeaders as $headerName => $headerValue) {
+            $rawHeaders[] = $headerName . ': ' . $headerValue;
+        }
+
+        return $this->curlRequest($method, $url, $params, $defaultHeaders);
+    }
+
+
+    /**
+     * Send curl request
+     *
+     * @param string     $method    @see NexmoSMS::request()
+     * @param string     $url       @see NexmoSMS::request()
+     * @param array      $params    @see NexmoSMS::request()
+     * @param array      $headers   The headers settings for sending curl request
+     *
+     * @return array
+     * @throws Exception
+     */
+    private function curlRequest($method, $url, $params, $headers)
+    {
+        $method = strtolower($method);
+        $curlOpts = array();
+
+        $params = !empty($params) ? http_build_query($params) : '';
+        if ('get' == $method) {
+            $curlOpts[CURLOPT_HTTPGET] = 1;
+            $url = "$url?$params";
+        } elseif ('post' == $method) {
+            $curlOpts[CURLOPT_POST] = 1;
+            $curlOpts[CURLOPT_POSTFIELDS] = $params;
+        } else {
+            throw new Exception("Unknown request method $method");
+        }
+
+        $url = self::utf8($url);
+        $curlOpts[CURLOPT_URL] = $url;
+        $curlOpts[CURLOPT_RETURNTRANSFER] = true;
+        $curlOpts[CURLOPT_SSL_VERIFYHOST] = false;
+        $curlOpts[CURLOPT_HTTPHEADER] = $headers;
+        $curlOpts[CURLOPT_TIMEOUT] = isset($options['timeout']) ? (int) $options['timeout'] : 60;
+        $curlOpts[CURLOPT_SSL_VERIFYPEER] = isset($options['ssl_verify_peer']) ? (int) $options['ssl_verify_peer'] : 0;
+
+        $curl = curl_init();
+        curl_setopt_array($curl, $curlOpts);
+        if (!$responseBody = curl_exec($curl)) {
+            $errno = curl_errno($curl);
+            $errorMessage = curl_error($curl);
+            curl_close($curl);
+            $this->handleCurlError($url, $errno, $errorMessage);
+        }
+        $responseCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        return array($responseBody, $responseCode);
+    }
+
+
+    /**
+     * Handle curl errors
+     *
+     * @param string   $url            The url used to send curl request
+     * @param int      $errno          The error number
+     * @param string   $errorMessage   The error message
+     *
+     * @throws Exception
+     */
+    private function handleCurlError($url, $errno, $errorMessage)
+    {
+        switch ($errno) {
+            case CURLE_COULDNT_CONNECT:
+            case CURLE_COULDNT_RESOLVE_HOST:
+            case CURLE_OPERATION_TIMEOUTED:
+                $msg = "Could not connect to Microgaming server ($url)."
+                    . "Please check internet connection and try again.";
+                break;
+            case CURLE_SSL_CACERT:
+            case CURLE_SSL_PEER_CERTIFICATE:
+                $msg = "Could not verify ssl certificate.";
+                break;
+            default:
+                $msg = "Unexpected curl error happended while connecting Microgaming server";
+                break;
+        }
+
+        $msg .= "\n\n\n (Error Tracker: [$errno]: $errorMessage)";
+
+        throw new Exception($msg);
     }
 
 
@@ -193,8 +287,17 @@ class NexmoSMS
      * */
 
 
-
-    public function sendSMS($from, $to, $message, $type = 'text')
+    /**
+     * Send a SMS message
+     * 
+     * @param string    $from     The sender address that may be alphanumeric
+     * @param string    $to       The recipient mobile number in *International format*
+     * @param array     $message  The message array that contains other parameters
+     * @param string    $type     The message type (text, unicode, wappush and binary)
+     *
+     * @return mixed
+     */
+    public function sendSMS($from, $to, array $message, $type = 'text')
     {
         $type = strtolower($type);
         $params = array_merge($message, array("from" => $from, "to" => $to, "type" => $type));
@@ -213,10 +316,18 @@ class NexmoSMS
                 throw new InvalidArgumentException("Unknown type ($type) for sending SMS Message");
                 break;
         }
+
         return $this->validateResponse($response);
     }
 
-    private function sendText($params)
+    /**
+     * Send a text message
+     *
+     * @param array $params The text message parameters
+     *
+     * @return mixed
+     */
+    private function sendText(array $params)
     {
         $required = array(
             'from',
@@ -242,19 +353,74 @@ class NexmoSMS
         $filteredParams['from'] = urlencode($filteredParams['from']);
         $filteredParams['text'] = urlencode($this->utf8($filteredParams['text']));
 
-        return $this->request($filteredParams);
+        $textUrl = $this->buildUrl();
+        list($responseBody, $responseCode)  = $this->request('post', $textUrl, $filteredParams);
+        return $responseBody;
     }
 
-    private function sendBinary($params)
+    /**
+     * Send a binary data message
+     *
+     * @param array $params The binary message parameters
+     *
+     * @return mixed
+     */
+    private function sendBinary(array $params)
     {
-        return $this->request($params);
+        $required = array(
+            'from',
+            'to',
+            'type',
+            'body',
+            'udh'
+        );
+        $filteredParams = $this->filterParams($params, $required);
+        $filteredParams['body'] = bin2hex($filteredParams['body']);
+        $filteredParams['udh'] = bin2hex($filteredParams['udh']);
+        $binaryUrl = $this->buildUrl();
+        list($responseBody, $responseCode) = $this->request('post', $binaryUrl, $filteredParams);
+        return $responseBody;
     }
 
-    private function sendWapPush($params)
+    /**
+     * Send a WAP Push message
+     *
+     * @param array $params The WAP Push message parameters
+     *
+     * @return mixed
+     */
+    private function sendWapPush(array $params)
     {
-        return $this->request($params);
+        $required = array(
+            'from',
+            'to',
+            'type',
+            'title',
+            'url'
+        );
+        $filteredParams = $this->filterParams($params, $required);
+
+        if ( !mb_check_encoding($filteredParams['title'], 'UTF-8') ||
+            !mb_check_encoding($filteredParams['url'], 'UTF-8')
+        ){
+            throw new InvalidArgumentException('title and url parameters must be valid UTF-8 encoded strings');
+        }
+
+        $filteredParams['title'] = self::utf8($filteredParams['title']);
+        $filteredParams['url'] = urlencode(self::utf8($filteredParams['url']));
+        $wappushUrl = $this->buildUrl();
+        list($responseBody, $responseCode) = $this->request('post', $wappushUrl, $filteredParams);
+        return $responseBody;
     }
 
+    /**
+     * Filter parameters that will be sent to Nexmo API
+     *
+     * @param array $params     The parameters sent to Nexmo
+     * @param array $required   The required parameter array for checking purpose
+     *
+     * @return array  The filtered parameters(remove unused blank parameters)
+     */
     private function filterParams(array $params, array $required = array())
     {
         $required = array_merge(self::$defaultRequired, $required);
@@ -274,24 +440,23 @@ class NexmoSMS
         return $filteredParams;
     }
 
-    protected function validateResponse(array $response)
+    private function validateResponse(array $response)
     {
-        return '';
-    }
-
-    private function request($params)
-    {
-        return $params;
+        switch ($this->nexmoConfig['endpoint_type']) {
+            case 'xml':
+                throw new BadMethodCallException("xml request not implemented yet");
+                break;
+            case 'json':
+            default:
+                $newResponse = $this->json($response);
+                break;
+        }
+        return $newResponse;
     }
 
     public function json($response)
     {
-
-    }
-
-    public function xml($response)
-    {
-        throw new BadMethodCallException("xml request not implemented yet");
+        return json_decode($response, true);
     }
 
 
