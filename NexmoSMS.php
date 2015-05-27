@@ -36,6 +36,15 @@ class NexmoSMS
 
 
     /**
+     * The format(xml or json) of response from Nexmo server,
+     * json by default
+     *
+     *@var string
+     */
+    private $responseFormat = 'json';
+
+
+    /**
      * The default required configuration
      *
      * @var array
@@ -111,12 +120,12 @@ class NexmoSMS
      *
      * @param string|array $name   string: the name of Nexmo config to be set,
      *                             array: an array of Nexmo settings to be set with names and values
-     * @param mixed        $value If $name is a string, then the value of the Nexmo settings
+     * @param mixed        $value  If $name is a string, then the value of the Nexmo settings
      *                             will be identified by $name
      */
     public function config($name, $value = null)
     {
-        if(is_array($name)) {
+        if (is_array($name)) {
             if (true === $value) {
                 $this->nexmoConfig = array_merge_recursive($this->nexmoConfig, $name);
             } else {
@@ -141,6 +150,7 @@ class NexmoSMS
         );
 
         $this->nexmoConfig = $config + $nexmoDefaultSettings;
+        $this->responseFormat = strtolower($this->nexmoConfig['endpoint_type']);
     }
 
     /**
@@ -150,7 +160,7 @@ class NexmoSMS
      */
     public function buildUrl()
     {
-        return $this->baseUrl . '/sms/' . $this->nexmoConfig['endpoint_type'];
+        return $this->baseUrl . '/sms/' . $this->responseFormat;
     }
 
     /**
@@ -171,11 +181,11 @@ class NexmoSMS
     /**
      * Send SMS request by using curl (default)
      *
-     * @param string    $method     The request method, get and post supported currently
-     * @param string    $url        The url used to send request
-     * @param array     $params     The parameters that needs to be
+     * @param string $method        The request method, get and post supported currently
+     * @param string $url           The url used to send request
+     * @param array  $params        The parameters that needs to be
      *                              set for sending request
-     * @param array     $options    The optional settings (timeout etc.)
+     * @param array  $options       The optional settings (timeout etc.)
      *
      * @return array
      * @throws Exception
@@ -200,10 +210,10 @@ class NexmoSMS
     /**
      * Send curl request
      *
-     * @param string     $method    @see NexmoSMS::request()
-     * @param string     $url       @see NexmoSMS::request()
-     * @param array      $params    @see NexmoSMS::request()
-     * @param array      $headers   The headers settings for sending curl request
+     * @param string $method  @see NexmoSMS::request()
+     * @param string $url     @see NexmoSMS::request()
+     * @param array  $params  @see NexmoSMS::request()
+     * @param array  $headers The headers settings for sending curl request
      *
      * @return array
      * @throws Exception
@@ -229,8 +239,8 @@ class NexmoSMS
         $curlOpts[CURLOPT_RETURNTRANSFER] = true;
         $curlOpts[CURLOPT_SSL_VERIFYHOST] = false;
         $curlOpts[CURLOPT_HTTPHEADER] = $headers;
-        $curlOpts[CURLOPT_TIMEOUT] = isset($options['timeout']) ? (int) $options['timeout'] : 60;
-        $curlOpts[CURLOPT_SSL_VERIFYPEER] = isset($options['ssl_verify_peer']) ? (int) $options['ssl_verify_peer'] : 0;
+        $curlOpts[CURLOPT_TIMEOUT] = isset($options['timeout']) ? (int)$options['timeout'] : 60;
+        $curlOpts[CURLOPT_SSL_VERIFYPEER] = isset($options['ssl_verify_peer']) ? (int)$options['ssl_verify_peer'] : 0;
 
         $curl = curl_init();
         curl_setopt_array($curl, $curlOpts);
@@ -249,9 +259,9 @@ class NexmoSMS
     /**
      * Handle curl errors
      *
-     * @param string   $url            The url used to send curl request
-     * @param int      $errno          The error number
-     * @param string   $errorMessage   The error message
+     * @param string $url          The url used to send curl request
+     * @param int    $errno        The error number
+     * @param string $errorMessage The error message
      *
      * @throws Exception
      */
@@ -278,6 +288,27 @@ class NexmoSMS
         throw new Exception($msg);
     }
 
+    /**
+     * Parse the response from Nexmo into json or xml based on configuration, json by default
+     *
+     * @param string $response The response from Nexmo server
+     *
+     * @return mixed
+     */
+    private function parseResponse($response)
+    {
+        switch ($this->responseFormat) {
+            case 'xml':
+                $newResponse = $this->xml($response);
+                break;
+            case 'json':
+            default:
+                $newResponse = $this->json($response);
+                break;
+        }
+        return $newResponse;
+    }
+
 
 
     /*
@@ -289,11 +320,11 @@ class NexmoSMS
 
     /**
      * Send a SMS message
-     * 
-     * @param string    $from     The sender address that may be alphanumeric
-     * @param string    $to       The recipient mobile number in *International format*
-     * @param array     $message  The message array that contains other parameters
-     * @param string    $type     The message type (text, unicode, wappush and binary)
+     *
+     * @param string $from    The sender address that may be alphanumeric
+     * @param string $to      The recipient mobile number in *International format*
+     * @param array  $message The message array that contains other parameters
+     * @param string $type    The message type (text, unicode, wappush and binary)
      *
      * @return mixed
      */
@@ -317,7 +348,9 @@ class NexmoSMS
                 break;
         }
 
-        return $this->validateResponse($response);
+        $parsedSMSResponse = $this->parseResponse($response);
+        $this->validateSMSResponse($parsedSMSResponse);
+        return $parsedSMSResponse;
     }
 
     /**
@@ -339,7 +372,7 @@ class NexmoSMS
 
         if (!is_numeric($filteredParams['from'])
             && !mb_check_encoding($filteredParams['from'], 'UTF-8')
-        ){
+        ) {
             throw new InvalidArgumentException('from parameter must be a valid UTF-8 encoded string');
         }
         if (!mb_check_encoding($filteredParams['text'], 'UTF-8')) {
@@ -354,7 +387,7 @@ class NexmoSMS
         $filteredParams['text'] = urlencode($this->utf8($filteredParams['text']));
 
         $textUrl = $this->buildUrl();
-        list($responseBody, $responseCode)  = $this->request('post', $textUrl, $filteredParams);
+        list($responseBody, $responseCode) = $this->request('post', $textUrl, $filteredParams);
         return $responseBody;
     }
 
@@ -400,9 +433,9 @@ class NexmoSMS
         );
         $filteredParams = $this->filterParams($params, $required);
 
-        if ( !mb_check_encoding($filteredParams['title'], 'UTF-8') ||
+        if (!mb_check_encoding($filteredParams['title'], 'UTF-8') ||
             !mb_check_encoding($filteredParams['url'], 'UTF-8')
-        ){
+        ) {
             throw new InvalidArgumentException('title and url parameters must be valid UTF-8 encoded strings');
         }
 
@@ -416,8 +449,8 @@ class NexmoSMS
     /**
      * Filter parameters that will be sent to Nexmo API
      *
-     * @param array $params     The parameters sent to Nexmo
-     * @param array $required   The required parameter array for checking purpose
+     * @param array $params   The parameters sent to Nexmo
+     * @param array $required The required parameter array for checking purpose
      *
      * @return array  The filtered parameters(remove unused blank parameters)
      */
@@ -440,23 +473,52 @@ class NexmoSMS
         return $filteredParams;
     }
 
-    private function validateResponse(array $response)
+    /**
+     * To check if the response is valid or not
+     *
+     * @param array|SimpleXMLElement $response The parsed response
+     *
+     * @return bool
+     */
+    private function validateSMSResponse($response)
     {
-        switch ($this->nexmoConfig['endpoint_type']) {
-            case 'xml':
-                throw new BadMethodCallException("xml request not implemented yet");
-                break;
-            case 'json':
-            default:
-                $newResponse = $this->json($response);
-                break;
-        }
-        return $newResponse;
+        return true;
     }
 
+    /**
+     * Parse response into json
+     *
+     * @param string $response The response from Nexmo server
+     *
+     * @return mixed
+     * @throws Exception
+     */
     public function json($response)
     {
-        return json_decode($response, true);
+        try{
+            $json = json_decode($response, true);
+        }catch (Exception $e) {
+            throw new Exception('Failed to parse response into json: '. $e->getMessage());
+        }
+        return $json;
+    }
+
+    /**
+     * Parse response into xml
+     *
+     * @param string $response The response from Nexmo server
+     *
+     * @return SimpleXMLElement
+     * @throws Exception
+     */
+    public function xml($response)
+    {
+        try{
+            $xml = simplexml_load_string((string) $response);
+        }catch (\Exception $e) {
+            throw new Exception('Failed to parse response into xml: ' . $e->getMessage());
+        }
+        return $xml;
     }
 
 
