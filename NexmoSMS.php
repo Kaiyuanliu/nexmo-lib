@@ -1,4 +1,6 @@
 <?php
+include __DIR__ . '/helpers.php';
+
 
 /**
  * Implementation of Nexmo SMS API including sending sms message,
@@ -78,9 +80,11 @@ class NexmoSMS
         array $nexmoOptions = array()
     )
     {
-        $this->configureDefaults($nexmoOptions);
         $this->nexmoApiKey = $nexmoApiKey;
         $this->nexmoApiSecret = $nexmoApiSecret;
+
+        $this->configureDefaults($nexmoOptions);
+        $this->refreshConfig();
     }
 
     /**
@@ -148,6 +152,7 @@ class NexmoSMS
             $settings[$name] = $value;
             $this->nexmoConfig = $settings;
         }
+        $this->refreshConfig();
     }
 
     /**
@@ -162,6 +167,13 @@ class NexmoSMS
         );
 
         $this->nexmoConfig = $config + $nexmoDefaultSettings;
+    }
+
+    /**
+     * Refresh Config here
+     */
+    private function refreshConfig()
+    {
         $this->responseFormat = strtolower($this->nexmoConfig['endpoint_type']);
     }
 
@@ -320,6 +332,30 @@ class NexmoSMS
         }
         return $newResponse;
     }
+
+    /**
+     * Generic function for handling received data from Nexmo
+     *
+     */
+    public function handleReceivingData(array $receiveDataArray)
+    {
+        // remove question mark
+        $input = str_replace('?', '', @file_get_contents('php://input'));
+        parse_str($input, $receiveDataArray);
+        // always send 200 status code to Nexmo
+        http_response_code(200);
+    }
+
+    public function logSMS(array $dbDetails, array $messageDetails)
+    {
+        if (!class_exists('MysqliDB')) {
+            include_once __DIR__ . '/MysqliDB.php';
+        }
+        $db = new MysqliDB($dbDetails);
+        $db->insert($dbDetails['tableName'], $messageDetails);
+    }
+
+
 
 
 
@@ -667,20 +703,4 @@ class NexmoSMS
     {
         return $this->inboundMessage;
     }
-
-    /**
-     * Generic function for handling received data from Nexmo
-     *
-     * @todo http_response_code is only supported by php 5.4+,
-     *       should add compatible code for php 5.4 below
-     */
-    public function handleReceivingData(array $receiveDataArray)
-    {
-        // remove ? mark
-        $input = str_replace('?', '', @file_get_contents('php://input'));
-        parse_str($input, $receiveDataArray);
-        // always send 200 status code to Nexmo
-        http_response_code(200);
-    }
-
 }
