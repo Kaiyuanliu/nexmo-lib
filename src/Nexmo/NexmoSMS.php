@@ -75,9 +75,9 @@ class NexmoSMS
     /**
      * Create an instance of NexmoSMS class
      *
-     * @param null  $nexmoApiKey     The Nexmo API KEY
-     * @param null  $nexmoApiSecret  The Nexmo API Secret
-     * @param array $nexmoOptions    The optional settings
+     * @param null|string  $nexmoApiKey     The Nexmo API KEY
+     * @param null|string  $nexmoApiSecret  The Nexmo API Secret
+     * @param array        $nexmoOptions    The optional settings
      */
     public function __construct(
         $nexmoApiKey = null,
