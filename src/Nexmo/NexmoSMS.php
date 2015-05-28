@@ -300,7 +300,7 @@ class NexmoSMS
             case CURLE_COULDNT_CONNECT:
             case CURLE_COULDNT_RESOLVE_HOST:
             case CURLE_OPERATION_TIMEOUTED:
-                $msg = "Could not connect to Microgaming server ($url)."
+                $msg = "Could not connect to Nexmo server ($url)."
                     . "Please check internet connection and try again.";
                 break;
             case CURLE_SSL_CACERT:
@@ -308,7 +308,7 @@ class NexmoSMS
                 $msg = "Could not verify ssl certificate.";
                 break;
             default:
-                $msg = "Unexpected curl error happended while connecting Microgaming server";
+                $msg = "Unexpected curl error happended while connecting Nexmo server";
                 break;
         }
 
@@ -344,11 +344,9 @@ class NexmoSMS
      *
      * @param array $receiveDataArray The array that handles received data
      */
-    public function handleReceivingData(array $receiveDataArray)
+    public function handleReceivingData(array &$receiveDataArray)
     {
-        // remove question mark
-        $input = str_replace('?', '', @file_get_contents('php://input'));
-        parse_str($input, $receiveDataArray);
+        $receiveDataArray = $_GET;
         // always send 200 status code to Nexmo
         http_response_code(200);
     }
@@ -434,9 +432,6 @@ class NexmoSMS
             $filteredParams['type'] = 'unicode';
         }
 
-        $filteredParams['from'] = urlencode($filteredParams['from']);
-        $filteredParams['text'] = urlencode($this->utf8($filteredParams['text']));
-
         $textUrl = $this->buildUrl();
         list($responseBody, $responseCode) = $this->request('post', $textUrl, $filteredParams);
         return $responseBody;
@@ -490,8 +485,6 @@ class NexmoSMS
             throw new InvalidArgumentException('title and url parameters must be valid UTF-8 encoded strings');
         }
 
-        $filteredParams['title'] = self::utf8($filteredParams['title']);
-        $filteredParams['url'] = urlencode(self::utf8($filteredParams['url']));
         $wappushUrl = $this->buildUrl();
         list($responseBody, $responseCode) = $this->request('post', $wappushUrl, $filteredParams);
         return $responseBody;
