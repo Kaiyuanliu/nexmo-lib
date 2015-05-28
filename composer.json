@@ -1,0 +1,25 @@
+{
+    "name": "kaiyuanliu/nexmo-lib",
+    "description": "A PHP Library for Nexmo API",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Kaiyuan Liu"
+        }
+    ],
+    "require": {
+      "php": ">=5.3",
+      "ext-mbstring": "*"
+    },
+    "require-dev": {
+      "phpunit/phpunit": "~4.0"
+    },
+    "autoload": {
+      "psr-4": {
+        "Nexmo\\": "src/"
+      },
+      "files": [
+         "src/Support/helpers.php"
+      ]
+    }
+}

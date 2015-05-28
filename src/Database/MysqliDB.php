@@ -1,4 +1,5 @@
 <?php
+namespace Nexmo\Database;
 
 /**
  * Class MysqliDB
