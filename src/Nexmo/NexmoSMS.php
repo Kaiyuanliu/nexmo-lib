@@ -346,7 +346,12 @@ class NexmoSMS
      */
     public function handleReceivingData(array &$receiveDataArray)
     {
-        $receiveDataArray = $_GET;
+        // check both $_GET and $_POST instead of $_REQUEST as $_REQUEST has security problem
+        if (isset($_GET)) {
+            $receiveDataArray = $_GET;
+        } elseif (isset($_POST)) {
+            $receiveDataArray = $_POST;
+        }
         // always send 200 status code to Nexmo
         http_response_code(200);
     }
