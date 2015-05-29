@@ -1,10 +1,24 @@
 <?php
+/**
+ * This is the MysqliDB class
+ *
+ * @author Kaiyuan Liu
+ * @link   https://github.com/Kaiyuanliu/nexmo-lib
+ */
+
 namespace Nexmo\Database;
 
+use mysqli;
+use Exception;
+
 /**
- * Class MysqliDB
+ * This is the MysqliDB class
  *
  * Thanks: https://gist.github.com/johnmorris/8135167#file-gistfile1-php
+ * @author Kaiyuan Liu
+ * @link https://github.com/Kaiyuanliu/nexmo-lib
+ * @category Nexmo
+ * @package Nexmo\Database
  */
 class MysqliDB
 {
@@ -65,6 +79,18 @@ class MysqliDB
     protected $query;
 
 
+    /**
+     * Create MysqliDB instance with host, username etc.
+     *
+     * @param null|string|array|mysqli   $host      The host of mysql database
+     * @param null|string                $username  The username of mysql database
+     * @param null|string                $password  The password of mysql database
+     * @param null|string                $dbName    The database name
+     * @param int                        $port      The mysql port number
+     * @param string                     $charset   The charset of the database
+     *
+     * @throws Exception
+     */
     public function __construct(
         $host = null,
         $username = null,

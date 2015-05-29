@@ -1,13 +1,27 @@
 <?php
+/**
+ * Implementation of Nexmo SMS API including sending sms message,
+ * receiving inbound message and handling delivery receipt
+ *
+ * @author Kaiyuan Liu
+ * @link https://github.com/Kaiyuanliu/nexmo-lib
+ */
+
 namespace Nexmo\Nexmo;
 
 use Nexmo\Database\MysqliDB;
 use SimpleXMLElement;
 use InvalidArgumentException;
 use Exception;
+
 /**
  * Implementation of Nexmo SMS API including sending sms message,
- *  receiving inbound message and handling delivery receipt
+ * receiving inbound message and handling delivery receipt
+ *
+ * @author Kaiyuan Liu
+ * @link https://github.com/Kaiyuanliu/nexmo-lib
+ * @category Nexmo
+ * @package Nexmo\Nexmo
  */
 class NexmoSMS
 {
@@ -193,6 +207,8 @@ class NexmoSMS
     }
 
     /**
+     * UTF8-encode function
+     *
      * @param string|mixed $value The string that needs to be UTF-8 encoded.
      *
      * @return string|mixed UTF-8 encoded string or the original object if it is not a string
@@ -356,6 +372,14 @@ class NexmoSMS
         http_response_code(200);
     }
 
+    /**
+     * Log SMS Message into Mysql database
+     *
+     * @param array $dbDetails      The database setting array(host, username, password etc.)
+     * @param array $messageDetails The message array to be saved
+     *
+     * @throws Exception
+     */
     public function logSMS(array $dbDetails, array $messageDetails)
     {
         $db = new MysqliDB($dbDetails);

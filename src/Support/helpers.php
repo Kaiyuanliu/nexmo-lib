@@ -1,13 +1,22 @@
 <?php
-
-/*
- * Be compatible with <= php 5.4, Could
+/**
+ * This is the helper functions container that includes multiple functions that may not be provided by the php
  *
- * Thanks: http://php.net/http_response_code#107261
+ * @author Kaiyuan Liu
+ * @link https://github.com/Kaiyuanliu/nexmo-lib
  *
  * */
 if (!function_exists('http_response_code')) {
 
+    /**
+     * Implementation of http_response_code. Be compatible with <= php 5.4
+     *
+     * @link http://php.net/http_response_code#107261
+     *
+     * @param null|int $code The http status code
+     *
+     * @return int|null
+     */
     function http_response_code($code = null) {
 
         if ($code !== null) {
