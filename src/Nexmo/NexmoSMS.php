@@ -76,6 +76,13 @@ class NexmoSMS
     private $inboundMessage = array();
 
     /**
+     * The array that contains original response from Nexmo
+     *
+     * @var string
+     */
+    private $originalResponse = '';
+
+    /**
      * The default required configuration
      *
      * @var array
@@ -426,6 +433,8 @@ class NexmoSMS
                 break;
         }
 
+        $this->originalResponse = $response;
+
         $parsedSMSResponse = $this->parseResponse($response);
         $this->validateSMSResponse($parsedSMSResponse);
         return $parsedSMSResponse;
@@ -673,6 +682,10 @@ class NexmoSMS
         }
 
         return true;
+    }
+
+    public function getOriginalResponse() {
+        return $this->originalResponse;
     }
 
 
